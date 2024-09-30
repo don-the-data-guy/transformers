@@ -21,7 +21,7 @@ from transformers.testing_utils import (
     require_bitsandbytes,
     require_read_token,
     require_torch,
-    require_torch_gpu,
+    require_torch_accelerator,
     slow,
     torch_device,
 )
@@ -298,7 +298,6 @@ class RecurrentGemmaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineT
     test_model_parallel = False
     test_pruning = False
     test_head_masking = False  # RecurrentGemma does not have attention heads
-    test_model_parallel = False
 
     # Need to remove 0.9 in `test_cpu_offload`
     # This is because we are hitting edge cases with the causal_mask buffer
@@ -414,8 +413,12 @@ class RecurrentGemmaModelTest(ModelTesterMixin, GenerationTesterMixin, PipelineT
     def test_initialization(self):
         pass
 
+    @unittest.skip(reason="RecurrentGemma does not support generating with input embeddings (missing position_ids)")
+    def test_inputs_embeds_matches_input_ids_with_generate(self):
+        pass
 
-@require_torch_gpu
+
+@require_torch_accelerator
 @slow
 class RecurrentGemmaIntegrationTest(unittest.TestCase):
     input_text = ["Hello I am doing", "Hi today"]

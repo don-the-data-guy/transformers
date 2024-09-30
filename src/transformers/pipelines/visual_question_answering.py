@@ -155,11 +155,17 @@ class VisualQuestionAnsweringPipeline(Pipeline):
             truncation=truncation,
         )
         image_features = self.image_processor(images=image, return_tensors=self.framework)
+        if self.framework == "pt":
+            image_features = image_features.to(self.torch_dtype)
         model_inputs.update(image_features)
         return model_inputs
 
     def _forward(self, model_inputs, **generate_kwargs):
         if self.model.can_generate():
+            # User-defined `generation_config` passed to the pipeline call take precedence
+            if "generation_config" not in generate_kwargs:
+                generate_kwargs["generation_config"] = self.generation_config
+
             model_outputs = self.model.generate(**model_inputs, **generate_kwargs)
         else:
             model_outputs = self.model(**model_inputs)
