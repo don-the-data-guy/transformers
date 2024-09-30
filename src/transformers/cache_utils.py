@@ -9,11 +9,14 @@ import torch
 from packaging import version
 
 from .configuration_utils import PretrainedConfig
-from .utils import is_hqq_available, is_optimum_quanto_available, is_torchdynamo_compiling, logging
+from .utils import (
+    is_hqq_available,
+    is_optimum_quanto_available,
+    is_quanto_available,
+    is_torchdynamo_compiling,
+    logging,
+)
 
-
-if is_optimum_quanto_available():
-    from optimum.quanto import AffineQuantizer, MaxOptimizer, qint2, qint4
 
 if is_hqq_available():
     from hqq.core.quantize import Quantizer as HQQQuantizer
@@ -752,12 +755,20 @@ class QuantoQuantizedCache(QuantizedCache):
 
     def __init__(self, cache_config: CacheConfig) -> None:
         super().__init__(cache_config)
-        quanto_version = version.parse(importlib.metadata.version("quanto"))
-        if quanto_version < version.parse("0.2.0"):
-            raise ImportError(
-                f"You need quanto package version to be greater or equal than 0.2.0 to use `QuantoQuantizedCache`. Detected version {quanto_version}. "
-                f"Please upgrade quanto with `pip install -U quanto`"
+
+        if is_optimum_quanto_available():
+            from optimum.quanto import MaxOptimizer, qint2, qint4
+        elif is_quanto_available():
+            logger.warning_once(
+                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
             )
+            quanto_version = version.parse(importlib.metadata.version("quanto"))
+            if quanto_version < version.parse("0.2.0"):
+                raise ImportError(
+                    f"You need quanto package version to be greater or equal than 0.2.0 to use `QuantoQuantizedCache`. Detected version {quanto_version}. "
+                    f"Since quanto will be deprecated, please install optimum-quanto instead with `pip install -U optimum-quanto`"
+                )
+            from quanto import MaxOptimizer, qint2, qint4
 
         if self.nbits not in [2, 4]:
             raise ValueError(f"`nbits` for `quanto` backend has to be one of [`2`, `4`] but got {self.nbits}")
@@ -775,7 +786,20 @@ class QuantoQuantizedCache(QuantizedCache):
 
     def _quantize(self, tensor, axis):
         scale, zeropoint = self.optimizer(tensor, self.qtype.bits, axis, self.q_group_size)
-        qtensor = AffineQuantizer.apply(tensor, self.qtype, axis, self.q_group_size, scale, zeropoint)
+        # We have two different API since in optimum-optimun, we don't use AffineQuantizer anymore
+        if is_optimum_quanto_available():
+            from optimum.quanto import QBitsTensor
+
+            qtensor = QBitsTensor.quantize(tensor, self.qtype, axis, self.q_group_size, scale, zeropoint)
+            return qtensor
+        elif is_quanto_available():
+            logger.warning_once(
+                "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
+            )
+            from quanto import AffineQuantizer
+
+            qtensor = AffineQuantizer.apply(tensor, self.qtype, axis, self.q_group_size, scale, zeropoint)
+
         return qtensor
 
     def _dequantize(self, qtensor):

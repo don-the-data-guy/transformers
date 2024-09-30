@@ -139,6 +139,7 @@ _nltk_available = _is_package_available("nltk")
 _onnx_available = _is_package_available("onnx")
 _openai_available = _is_package_available("openai")
 _optimum_available = _is_package_available("optimum")
+_optimum_quanto_available = _is_package_available("optimum.quanto")
 _auto_gptq_available = _is_package_available("auto_gptq")
 # `importlib.metadata.version` doesn't work with `awq`
 _auto_awq_available = importlib.util.find_spec("awq") is not None
@@ -960,11 +961,16 @@ def is_optimum_available():
 def is_auto_awq_available():
     return _auto_awq_available
 
+
 def is_quanto_available():
+    logger.warning_once(
+        "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instrad `pip install optimum-quanto`"
+    )
     return _quanto_available
 
+
 def is_optimum_quanto_available():
-    return importlib.util.find_spec("optimum.quanto") is not None
+    return _optimum_quanto_available
 
 
 def is_compressed_tensors_available():
