@@ -600,7 +600,9 @@ _import_structure = {
     "models.mt5": ["MT5Config"],
     "models.musicgen": [
         "MusicgenConfig",
-        "MusicgenDecoderConfig",
+    ],
+    "models.moshi": [
+        "MoshiConfig",
     ],
     "models.musicgen_melody": [
         "MusicgenMelodyConfig",
@@ -2826,6 +2828,14 @@ else:
             "MusicgenModel",
             "MusicgenPreTrainedModel",
             "MusicgenProcessor",
+        ]
+    )
+    _import_structure["models.moshi"].extend(
+        [
+            "MoshiForCausalLM",
+            "MoshiForConditionalGeneration",
+            "MoshiModel",
+            "MoshiPreTrainedModel",
         ]
     )
     _import_structure["models.musicgen_melody"].extend(
@@ -5423,6 +5433,9 @@ if TYPE_CHECKING:
     from .models.mobilevitv2 import (
         MobileViTV2Config,
     )
+    from .models.moshi import (
+        MoshiConfig,
+    )
     from .models.mpnet import (
         MPNetConfig,
         MPNetTokenizer,
@@ -7352,6 +7365,12 @@ if TYPE_CHECKING:
             MobileViTV2ForSemanticSegmentation,
             MobileViTV2Model,
             MobileViTV2PreTrainedModel,
+        )
+        from .models.moshi import (
+            MoshiForCausalLM,
+            MoshiForConditionalGeneration,
+            MoshiModel,
+            MoshiPreTrainedModel,
         )
         from .models.mpnet import (
             MPNetForMaskedLM,
