@@ -110,6 +110,9 @@ class GenerationTesterMixin:
         # we'll set cache use in each test differently
         inputs_dict.pop("use_cache", None)
 
+        # Ignore labels if it is in the input dict
+        inputs_dict.pop("labels", None)
+
         inputs_dict = {
             k: v[:batch_size, ...]
             for k, v in inputs_dict.items()
