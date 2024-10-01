@@ -13,11 +13,11 @@
 # limitations under the License.
 """Image processor class for SuperPoint."""
 
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ... import is_vision_available
+from ... import is_torch_available, is_vision_available
 from ...image_processing_utils import BaseImageProcessor, BatchFeature, get_size_dict
 from ...image_transforms import resize, to_channel_dimension_format
 from ...image_utils import (
@@ -32,8 +32,15 @@ from ...image_utils import (
 from ...utils import TensorType, logging, requires_backends
 
 
+if is_torch_available():
+    import torch
+
+    from .modeling_superpoint import SuperPointKeypointDescriptionOutput
+
+
 if is_vision_available():
     import PIL
+
 
 logger = logging.get_logger(__name__)
 
@@ -270,3 +277,54 @@ class SuperPointImageProcessor(BaseImageProcessor):
         data = {"pixel_values": images}
 
         return BatchFeature(data=data, tensor_type=return_tensors)
+
+    def post_process_keypoint_detection(
+        self, outputs: "SuperPointKeypointDescriptionOutput", target_sizes: Union[TensorType, List[Tuple]]
+    ):
+        """
+        Converts the raw output of [`SuperPointForKeypointDetection`] into lists of keypoints, scores and descriptors
+        with coordinates absolute to the original image sizes.
+
+        Args:
+            outputs ([`SuperPointKeypointDescriptionOutput`]):
+                Raw outputs of the model.
+            target_sizes (`torch.Tensor` or `List[Tuple[int, int]]`, *optional*):
+                Tensor of shape `(batch_size, 2)` or list of tuples (`Tuple[int, int]`) containing the target size
+                `(height, width)` of each image in the batch. This must be the original
+                image size (before any processing).
+        Returns:
+            `List[Dict]`: A list of dictionaries, each dictionary containing the keypoints, scores and descriptors for
+            an image in the batch as predicted by the model.
+        """
+        if len(outputs.mask) != len(target_sizes):
+            raise ValueError("Make sure that you pass in as many target sizes as the batch dimension of the mask")
+
+        if isinstance(target_sizes, List):
+            image_sizes = torch.tensor(target_sizes)
+        else:
+            if target_sizes.shape[1] != 2:
+                raise ValueError(
+                    "Each element of target_sizes must contain the size (h, w) of each image of the batch"
+                )
+            image_sizes = target_sizes
+
+        masked_keypoints = outputs.keypoints.clone()
+
+        for keypoints, image_size in zip(masked_keypoints, image_sizes):
+            keypoints[:, 0] = keypoints[:, 0] * image_size[1]
+            keypoints[:, 1] = keypoints[:, 1] * image_size[0]
+
+        # Convert masked_keypoints to int
+        masked_keypoints = masked_keypoints.to(torch.int32)
+
+        results = []
+        for image_mask, keypoints, scores, descriptors in zip(
+            outputs.mask, masked_keypoints, outputs.scores, outputs.descriptors
+        ):
+            indices = torch.nonzero(image_mask).squeeze(1)
+            keypoints = keypoints[indices]
+            scores = scores[indices]
+            descriptors = descriptors[indices]
+            results.append({"keypoints": keypoints, "scores": scores, "descriptors": descriptors})
+
+        return results
