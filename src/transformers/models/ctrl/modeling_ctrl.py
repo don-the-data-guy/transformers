@@ -522,6 +522,8 @@ class CTRLLMHeadModel(CTRLPreTrainedModel, GenerationMixin):
         self.lm_head = new_embeddings
 
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None, use_cache=None, **kwargs):
+        # Overwritten -- model logic breaks when `inputs_embeds` are passed from this function
+
         # only last tokens for inputs_ids if past is defined in kwargs
         if past_key_values is not None:
             past_length = past_key_values[0][0].shape[2]
