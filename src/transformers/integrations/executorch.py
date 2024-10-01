@@ -114,6 +114,50 @@ class TorchExportableModuleWithStaticCache(torch.nn.Module):
         )
         return outs.logits
 
+    @staticmethod
+    def generate(
+        exported_program: torch.export.ExportedProgram, prompt_token_ids: torch.Tensor, max_new_tokens: int
+    ) -> torch.Tensor:
+        """
+        Generate a sequence of tokens using the model.
+
+        Args:
+            exported_program (`torch.export.ExportedProgram`): The exported program generated via `torch.export`.
+            prompt_tokens (`torch.Tensor`): Tensor representing the prompt tokens.
+            max_new_tokens (`int`): Maximum number of new tokens to generate.
+
+        Returns:
+            torch.Tensor: Tensor representing the generated sequence of tokens.
+        """
+        prompt_token_len = prompt_token_ids.shape[-1]
+        max_generation_length = prompt_token_len + max_new_tokens
+        for buffer_name, buffer in exported_program.named_buffers():
+            if buffer_name.startswith("static_cache.key_cache"):
+                max_cache_len = buffer.shape[2]
+                max_generation_length = min(max_generation_length, max_cache_len)
+                break
+
+        response_tokens = []
+        for input_pos in range(min(max_generation_length, prompt_token_len)):
+            result = exported_program.module().forward(
+                input_ids=prompt_token_ids[:, input_pos : input_pos + 1],
+                cache_position=torch.tensor([input_pos], dtype=torch.long),
+            )
+            response_tokens.append(prompt_token_ids[0][input_pos].item())
+
+        current_token = torch.argmax(result[:, -1, :], dim=-1).item()
+        response_tokens.append(current_token)
+
+        while len(response_tokens) < max_generation_length:
+            result = exported_program.module().forward(
+                input_ids=torch.tensor([[current_token]], dtype=torch.long),
+                cache_position=torch.tensor([len(response_tokens)], dtype=torch.long),
+            )
+            current_token = torch.argmax(result[:, -1, :], dim=-1).item()
+            response_tokens.append(current_token)
+
+        return torch.tensor([response_tokens], dtype=torch.long)
+
 
 def convert_and_export_with_cache(
     model: PreTrainedModel,
