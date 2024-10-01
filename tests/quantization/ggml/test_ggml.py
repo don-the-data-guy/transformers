@@ -45,6 +45,8 @@ class GgufIntegrationTests(unittest.TestCase):
     bloom_model_id = "afrideva/bloom-560m-GGUF"
     original_bloom_model_id = "bigscience/bloom-560m"
     stablelm_model_id = "afrideva/stablelm-3b-4e1t-GGUF"
+    stablelm2_model_id = "afrideva/stablelm-2-1_6b-GGUF"
+    original_stablelm2_model_id = "stabilityai/stablelm-2-1_6b"
 
     # standard quants
     q4_0_gguf_model_id = "tinyllama-1.1b-chat-v1.0.Q4_0.gguf"
@@ -74,6 +76,7 @@ class GgufIntegrationTests(unittest.TestCase):
     q4_0_qwen2_moe_model_id = "Qwen1.5-MoE-A2.7B-Chat.Q4_0.gguf"
     q4_llama3_model_id = "Meta-Llama-3-8B-Q4_K_M.gguf"
     fp16_bloom_model_id = "bloom-560m.fp16.gguf"
+    fp16_stablelm2_model_id = "stablelm-2-1_6b.fp16.gguf"
     q8_bloom_model_id = "bloom-560m.q8_0.gguf"
     f16_tinyllama_model_id = "TinyLlama-1.1B-Chat-v1.0.FP16.gguf"
 
@@ -448,7 +451,6 @@ class GgufIntegrationTests(unittest.TestCase):
                 torch.testing.assert_close(quantized_param, original_param)
 
     def test_stablelm_q4_k_m(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.stablelm_model_id, gguf_file=self.q4_k_m_stablelm_model_id)
         model = AutoModelForCausalLM.from_pretrained(
             self.stablelm_model_id,
             gguf_file=self.q4_k_m_stablelm_model_id,
@@ -456,11 +458,39 @@ class GgufIntegrationTests(unittest.TestCase):
             torch_dtype=torch.float16,
         )
 
+        tokenizer = AutoTokenizer.from_pretrained(self.stablelm_model_id, gguf_file=self.q4_k_m_stablelm_model_id)
         text = tokenizer(self.example_text, return_tensors="pt").to(torch_device)
         out = model.generate(**text, max_new_tokens=10)
 
         EXPECTED_TEXT = "Hello-\nI am trying to create a new user"
         self.assertEqual(tokenizer.decode(out[0], skip_special_tokens=True), EXPECTED_TEXT)
+
+    def test_stablelm_fp16(self):
+        original_model = AutoModelForCausalLM.from_pretrained(
+            self.original_stablelm2_model_id,
+            torch_dtype=torch.float16,
+        )
+
+        converted_model = AutoModelForCausalLM.from_pretrained(
+            self.stablelm2_model_id,
+            gguf_file=self.fp16_stablelm2_model_id,
+            torch_dtype=torch.float16,
+            # it needs to use the original model config as quantized one is different
+            # and it highly influences on the output results
+            config=original_model.config,
+        )
+
+        tokenizer = AutoTokenizer.from_pretrained(self.stablelm2_model_id, gguf_file=self.fp16_stablelm2_model_id)
+        text = tokenizer(self.example_text, return_tensors="pt")
+        original_out = original_model.generate(**text, max_new_tokens=10)
+        converted_out = converted_model.generate(**text, max_new_tokens=10)
+
+        EXPECTED_TEXT = "Hello, I am a 20 year old male"
+        self.assertEqual(tokenizer.decode(converted_out[0], skip_special_tokens=True), EXPECTED_TEXT)
+        self.assertEqual(
+            tokenizer.decode(converted_out[0], skip_special_tokens=True),
+            tokenizer.decode(original_out[0], skip_special_tokens=True),
+        )
 
     def test_tokenization_xnli(self):
         import tqdm
