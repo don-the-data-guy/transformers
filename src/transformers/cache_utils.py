@@ -786,7 +786,7 @@ class QuantoQuantizedCache(QuantizedCache):
 
     def _quantize(self, tensor, axis):
         scale, zeropoint = self.optimizer(tensor, self.qtype.bits, axis, self.q_group_size)
-        # We have two different API since in optimum-optimun, we don't use AffineQuantizer anymore
+        # We have two different API since in optimum-quanto, we don't use AffineQuantizer anymore
         if is_optimum_quanto_available():
             from optimum.quanto import QBitsTensor
 

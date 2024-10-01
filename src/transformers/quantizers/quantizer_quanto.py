@@ -69,7 +69,7 @@ class QuantoHfQuantizer(HfQuantizer):
             )
         if not is_accelerate_available():
             raise ImportError(
-                "Loading a optimum-quanto quantized model requires accelerate library (`pip install accelerate`)"
+                "Loading an optimum-quanto quantized model requires accelerate library (`pip install accelerate`)"
             )
 
     def update_device_map(self, device_map):
