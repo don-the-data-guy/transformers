@@ -788,6 +788,7 @@ class QuantoQuantizedCache(QuantizedCache):
         # We have two different API since in optimum-quanto, we don't use AffineQuantizer anymore
         if is_optimum_quanto_available():
             from optimum.quanto import quantize_weight
+
             scale, zeropoint = self.optimizer(tensor, self.qtype, axis, self.q_group_size)
             qtensor = quantize_weight(tensor, self.qtype, axis, scale, zeropoint, self.q_group_size)
             return qtensor
@@ -796,6 +797,7 @@ class QuantoQuantizedCache(QuantizedCache):
                 "Importing from quanto will be deprecated in v4.47. Please install optimum-quanto instead `pip install optimum-quanto`"
             )
             from quanto import AffineQuantizer
+
             scale, zeropoint = self.optimizer(tensor, self.qtype.bits, axis, self.q_group_size)
             qtensor = AffineQuantizer.apply(tensor, self.qtype, axis, self.q_group_size, scale, zeropoint)
 
