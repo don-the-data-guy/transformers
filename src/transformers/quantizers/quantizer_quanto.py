@@ -213,7 +213,7 @@ class QuantoHfQuantizer(HfQuantizer):
 
     @property
     def is_trainable(self, model: Optional["PreTrainedModel"] = None):
-        return False
+        return True
 
     def is_serializable(self, safe_serialization=None):
         return False
